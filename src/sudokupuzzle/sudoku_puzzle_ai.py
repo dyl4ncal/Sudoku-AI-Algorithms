@@ -1,7 +1,8 @@
 '''
 This Python program solves Sudoku puzzles using two different algorithms:
-    -Back-Tracking algorithm
-    -Forward-Checking algorithm with heuristics.
+
+-Back-Tracking algorithm
+-Forward-Checking algorithm with the MRV heuristic.
 
 Created on Feb. 9, 2019
 
@@ -61,7 +62,7 @@ def execute_program_loop():
         elif selected_option == "3":
             
             choice = input("""\nTerminating the program will empty the 'Puzzle Solutions' folder.
-\nType y to terminate or hit Enter to go back to the main menu: """)
+\nType y to terminate or press Enter to go back to the Main Menu: """)
             
             if choice == "y":
                 
@@ -78,15 +79,16 @@ def execute_program_loop():
         else:
             print("Error: Invalid Input. You can only select option (1-3).")
 
+
 #Allows the user to select a text file containing the puzzle data and also checks if the data is valid.     
 def read_input_file():
     global puzzle, initial_puzzle_state
     
     filename = input("Enter name of a valid puzzle file (e.g. puzzle7.txt): ")
     
-    if os.path.exists(os.path.join(sys.path[0], filename)): 
+    if os.path.exists(os.path.join(sys.path[0], "Puzzles/",  filename)): 
 
-        with open(os.path.join(sys.path[0], filename), "r") as input_file:
+        with open(os.path.join(sys.path[0], "Puzzles/", filename), "r") as input_file:
             initial_puzzle_state = [[int(data) for data in row if data.strip()] for row in input_file]
             puzzle = copy.deepcopy(initial_puzzle_state)
             
@@ -105,32 +107,7 @@ def read_input_file():
     else:
         print("\nInput Error: You must select a valid Sudoku text file.")
         read_input_file() 
-     
-#Solves a Sudoku puzzle using a back-tracking algorithm.  
-def back_tracking_algorithm(x_coord, y_coord):
-    global puzzle, nodes_visited
-    
-    x_coord, y_coord = get_next_unassigned_cell(x_coord, y_coord)
-    
-    #The puzzle is solved.
-    if x_coord == None and y_coord == None:
-        return True
-        
-    #Iterates through numbers 1 to 9 and checks if any are valid moves.
-    #If the number is valid, it gets placed in that location on the puzzle board and 
-    #the process repeats for the next empty cell.
-    for num in range(1,10):
-        if is_valid_choice(num, x_coord, y_coord):
-            puzzle[x_coord][y_coord] = num
-            
-            if back_tracking_algorithm(x_coord, y_coord):
-                return True
-            
-            #If no valid moves exist for the current variable, we need to back track to the last valid state.
-            #This is where we increment our visited_node counter.
-            puzzle[x_coord][y_coord] = 0
-            nodes_visited = nodes_visited + 1
-    return False
+
 
 #Returns the coordinates of the next empty cell found in the puzzle.
 def get_next_unassigned_cell(i, j, is_last_cell=True):
@@ -149,7 +126,8 @@ def get_next_unassigned_cell(i, j, is_last_cell=True):
     #If there are no more empty cells, return None.
     return None, None
 
-#Checks if target move is allowed.
+
+#Checks if proposed choice is allowed.
 def is_valid_choice(move, i, j):
     global puzzle
     
@@ -172,16 +150,48 @@ def is_valid_choice(move, i, j):
             return True
     return False
 
-#Solves a Sudoku puzzle using the forward-checking algorithm
-#with Minimum Remaining Values heuristic.  
+
+#Solves a Sudoku puzzle using a back-tracking algorithm.  
+def back_tracking_algorithm(x_coord, y_coord):
+    global puzzle, nodes_visited
+    
+    #Increment the visited_node counter. 
+    #I'm intentionally not counting nodes that are back tracked across so that the same nodes aren't counted multiple times.
+    nodes_visited = nodes_visited + 1
+    
+    x_coord, y_coord = get_next_unassigned_cell(x_coord, y_coord)
+    
+    #The puzzle is solved when there are no more unassigned cells.
+    if x_coord == None and y_coord == None:
+        return True
+        
+    #Iterates through numbers 1 to 9 and checks if any are valid moves.
+    #If the number is valid, it gets placed in that location on the puzzle board and 
+    #the process repeats for the next empty cell.
+    for num in range(1,10):
+        if is_valid_choice(num, x_coord, y_coord):
+            puzzle[x_coord][y_coord] = num
+            
+            if back_tracking_algorithm(x_coord, y_coord):
+                return True
+            
+            #If no valid moves exist for the current variable, set the cell to 0 and back track to the last valid state.
+            puzzle[x_coord][y_coord] = 0
+            
+    return False
+
+
+#Solves a Sudoku puzzle using the forward-checking algorithm with Minimum Remaining Values heuristic.
 def forward_checking_algorithm():
     global puzzle, nodes_visited
+    
+    #Increment the visited_node counter.
+    nodes_visited = nodes_visited + 1
     
     possible_values = []
     acquired_possible_values = False
     
-    #Maintain a list of the legal values that each cell can have given the numbers
-    #already on the board.
+    #Maintain a list of the legal values that each cell can have given the numbers already on the board.
     for x_coord in range(0,9):
         for y_coord in range(0,9):
             if puzzle[x_coord][y_coord] == 0:
@@ -197,10 +207,9 @@ def forward_checking_algorithm():
                 possible_values.append(empty_cell_locations)
                 acquired_possible_values = True
     
-    #If there are no more empty cells, the puzzle is solved.
+    #The puzzle is solved when there are no more unassigned cells.
     if not acquired_possible_values:
         return True
-
 
     most_constrained_variable = possible_values[0][0]
 
@@ -208,14 +217,13 @@ def forward_checking_algorithm():
     mrv_current = possible_values[0][1]
     
     for i in range(0,len(possible_values)):
-        
         #Iterate through the list of possible values generated from the above code.
         #Choose the cell with the least number of possible values (MRV heuristic).
         if possible_values[i][1] < mrv_current:
             mrv_current = possible_values[i][1]
             most_constrained_variable = possible_values[i][0]
     
-    #We calculated the most constrained variable. Assign it to coordinate variables.
+    #The most constrained variable has been determined at this point. Assign it to the coordinate variables.
     x_coord = most_constrained_variable[0]
     y_coord = most_constrained_variable[1]
     
@@ -228,8 +236,9 @@ def forward_checking_algorithm():
             #If no valid moves exist for the current variable, we need to back track
             #to the last valid state.
             puzzle[x_coord][y_coord] = 0
-            nodes_visited = nodes_visited + 1
+            
     return False
+
 
 #Prints the puzzle list as a Sudoku board for display.
 def print_puzzle(puzzle): 
@@ -241,6 +250,7 @@ def print_puzzle(puzzle):
             if (j+1) % 3 == 0 and j != 8:
                 print("|", end = " ") 
         print(" ")
+
 
 #Writes solved puzzles to a solutions file.
 def write_solution_to_file():
@@ -260,6 +270,7 @@ def write_solution_to_file():
                     output_file.write("| ")
             output_file.write("\n")
 
+
 #Writes the results to the console and to a file.
 def output_results_to_console():
     global puzzle, time_initial, time_final, nodes_visited
@@ -271,6 +282,7 @@ def output_results_to_console():
     print("\nTotal Nodes Visited: ", nodes_visited)
     
     write_solution_to_file()
+        
         
 #Begin running the program by calling the execute_program_loop() function.
 if __name__ == "__main__":
